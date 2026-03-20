@@ -14,6 +14,7 @@ import {
     ShowMessageNotification,
     MessageType,
     FileChangeType,
+    ReferenceParams,
 } from 'vscode-languageserver';
 
 import {
@@ -30,6 +31,7 @@ import {
 import { basename, dirname, parse } from 'path';
 
 import { compileDocument as javascriptCompileDocument } from './javascript/compiler';
+import { findApiPropertyReferences, findComponentTagReferences, findBindingDefinitionInJs } from './references';
 import { AuraDataProvider } from './aura-data-provider';
 import { LWCDataProvider } from './lwc-data-provider';
 import {
@@ -93,6 +95,7 @@ export default class Server {
         this.connection.onHover(this.onHover.bind(this));
         this.connection.onShutdown(this.onShutdown.bind(this));
         this.connection.onDefinition(this.onDefinition.bind(this));
+        this.connection.onReferences(this.onReferences.bind(this));
         this.connection.onInitialized(this.onInitialized.bind(this));
         this.connection.onDidChangeWatchedFiles(this.onDidChangeWatchedFiles.bind(this));
 
@@ -131,6 +134,7 @@ export default class Server {
                 },
                 hoverProvider: true,
                 definitionProvider: true,
+                referencesProvider: true,
                 workspace: {
                     workspaceFolders: {
                         supported: true,
@@ -394,6 +398,61 @@ export default class Server {
                     }
                 }
         }
+        return [];
+    }
+
+    async onReferences(params: ReferenceParams): Promise<Location[]> {
+        const { uri } = params.textDocument;
+        const doc = this.documents.get(uri);
+        if (!doc) {
+            return [];
+        }
+
+        // JS file: find references to the symbol under cursor across HTML templates
+        if (await this.context.isLWCJavascript(doc)) {
+            const tag = this.componentIndexer.findTagByURI(uri);
+            if (!tag) {
+                return [];
+            }
+            const offset = doc.offsetAt(params.position);
+            const text = doc.getText();
+            // Find the word under cursor
+            let start = offset;
+            let end = offset;
+            while (start > 0 && /\w/.test(text[start - 1])) {
+                start--;
+            }
+            while (end < text.length && /\w/.test(text[end])) {
+                end++;
+            }
+            const word = text.substring(start, end);
+            if (!word) {
+                return [];
+            }
+            const member = tag.metadata.classMembers?.find((m) => m.name === word);
+            if (member?.decorator === 'api') {
+                return findApiPropertyReferences(this.componentIndexer, this.languageService, tag, word);
+            }
+            return [];
+        }
+
+        // HTML file: find references based on cursor context
+        if (await this.context.isLWCTemplate(doc)) {
+            const cursorInfo = this.cursorInfo(params);
+            if (!cursorInfo) {
+                return [];
+            }
+            switch (cursorInfo.type) {
+                case 'tag':
+                    return findComponentTagReferences(this.componentIndexer, this.languageService, cursorInfo.name);
+                case 'dynamicContent':
+                case 'dynamicAttributeValue': {
+                    const loc = findBindingDefinitionInJs(this.componentIndexer, uri, cursorInfo.name);
+                    return loc ? [loc] : [];
+                }
+            }
+        }
+
         return [];
     }
 
