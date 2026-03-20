@@ -15,6 +15,8 @@ import {
     MessageType,
     FileChangeType,
     ReferenceParams,
+    DocumentSymbolParams,
+    DocumentSymbol,
 } from 'vscode-languageserver';
 
 import {
@@ -32,6 +34,7 @@ import { basename, dirname, parse } from 'path';
 
 import { compileDocument as javascriptCompileDocument } from './javascript/compiler';
 import { findApiPropertyReferences, findComponentTagReferences, findBindingDefinitionInJs } from './references';
+import { getJsDocumentSymbols, getHtmlDocumentSymbols } from './document-symbols';
 import { AuraDataProvider } from './aura-data-provider';
 import { LWCDataProvider } from './lwc-data-provider';
 import {
@@ -96,6 +99,7 @@ export default class Server {
         this.connection.onShutdown(this.onShutdown.bind(this));
         this.connection.onDefinition(this.onDefinition.bind(this));
         this.connection.onReferences(this.onReferences.bind(this));
+        this.connection.onDocumentSymbol(this.onDocumentSymbol.bind(this));
         this.connection.onInitialized(this.onInitialized.bind(this));
         this.connection.onDidChangeWatchedFiles(this.onDidChangeWatchedFiles.bind(this));
 
@@ -135,6 +139,7 @@ export default class Server {
                 hoverProvider: true,
                 definitionProvider: true,
                 referencesProvider: true,
+                documentSymbolProvider: true,
                 workspace: {
                     workspaceFolders: {
                         supported: true,
@@ -263,6 +268,20 @@ export default class Server {
             return;
         }
         return this.languageService.doHover(doc, position, htmlDoc);
+    }
+
+    async onDocumentSymbol(params: DocumentSymbolParams): Promise<DocumentSymbol[]> {
+        const doc = this.documents.get(params.textDocument.uri);
+        if (!doc) {
+            return [];
+        }
+        if (await this.context.isLWCJavascript(doc)) {
+            return getJsDocumentSymbols(doc);
+        }
+        if (await this.context.isLWCTemplate(doc)) {
+            return getHtmlDocumentSymbols(doc, this.languageService.parseHTMLDocument(doc));
+        }
+        return [];
     }
 
     async onDidChangeContent(changeEvent: any): Promise<void> {
