@@ -116,17 +116,51 @@ require("lspconfig").lwc_ls.setup({
 Open an LWC project, then:
 
 ```
-:LspInfo
+:checkhealth vim.lsp
 ```
 
-You should see `lwc_ls` attached to your `.js` and `.html` buffers. Test it out:
+Look for `lwc_ls` in the output — it should show as attached to your `.js` and `.html` buffers.
+
+### 4. Keybindings & Autocmd Setup
+
+Set up an `LspAttach` autocmd to bind LSP and diagnostic actions only when a language server is active:
+
+```lua
+local augroup = vim.api.nvim_create_augroup
+local LwcGroup = augroup("LwcLsp", {})
+
+vim.api.nvim_create_autocmd("LspAttach", {
+    group = LwcGroup,
+    callback = function(e)
+        local opts = { buffer = e.buf }
+
+        -- LSP navigation
+        vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
+        vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
+
+        -- LSP actions (all supported by this fork)
+        vim.keymap.set("n", "<leader>vca", vim.lsp.buf.code_action, opts)
+        vim.keymap.set("n", "<leader>vrr", vim.lsp.buf.references, opts)
+        vim.keymap.set("n", "<leader>vrn", vim.lsp.buf.rename, opts)
+        vim.keymap.set("n", "<leader>vws", vim.lsp.buf.workspace_symbol, opts)
+        vim.keymap.set("i", "<C-h>", vim.lsp.buf.signature_help, opts)
+
+        -- Diagnostics
+        vim.keymap.set("n", "<leader>vd", vim.diagnostic.open_float, opts)
+        vim.keymap.set("n", "]e", function() vim.diagnostic.jump({ count = 1 }) end, opts)
+        vim.keymap.set("n", "[e", function() vim.diagnostic.jump({ count = -1 }) end, opts)
+    end,
+})
+```
+
+Test it out:
 
 - `:Telescope lsp_document_symbols` — see your component outline
-- `vim.lsp.buf.references()` — find all usages of an `@api` property
-- `vim.lsp.buf.rename()` — rename across JS and HTML files
-- `vim.lsp.buf.code_action()` — quick fix missing imports
+- `<leader>vrr` — find all usages of an `@api` property across templates
+- `<leader>vrn` — rename across JS and HTML files
+- `<leader>vca` — quick fix missing imports
 
-### 4. Rebuilding After Updates
+### 5. Rebuilding After Updates
 
 ```bash
 cd lightning-language-server/packages/lwc-language-server
