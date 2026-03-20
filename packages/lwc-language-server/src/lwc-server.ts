@@ -19,6 +19,8 @@ import {
     DocumentSymbol,
     CodeActionParams,
     CodeAction,
+    RenameParams,
+    WorkspaceEdit,
 } from 'vscode-languageserver';
 
 import {
@@ -37,6 +39,7 @@ import { basename, dirname, parse } from 'path';
 import { compileDocument as javascriptCompileDocument } from './javascript/compiler';
 import { findApiPropertyReferences, findComponentTagReferences, findBindingDefinitionInJs } from './references';
 import { getCodeActions } from './code-actions';
+import { renameApiProperty, renameHtmlAttribute, renameComponentTag } from './rename';
 import { getJsDocumentSymbols, getHtmlDocumentSymbols } from './document-symbols';
 import { AuraDataProvider } from './aura-data-provider';
 import { LWCDataProvider } from './lwc-data-provider';
@@ -104,6 +107,7 @@ export default class Server {
         this.connection.onReferences(this.onReferences.bind(this));
         this.connection.onDocumentSymbol(this.onDocumentSymbol.bind(this));
         this.connection.onCodeAction(this.onCodeAction.bind(this));
+        this.connection.onRenameRequest(this.onRename.bind(this));
         this.connection.onInitialized(this.onInitialized.bind(this));
         this.connection.onDidChangeWatchedFiles(this.onDidChangeWatchedFiles.bind(this));
 
@@ -147,6 +151,7 @@ export default class Server {
                     codeActionKinds: ['quickfix'],
                 },
                 documentSymbolProvider: true,
+                renameProvider: true,
                 workspace: {
                     workspaceFolders: {
                         supported: true,
@@ -300,6 +305,52 @@ export default class Server {
             return getCodeActions(doc, params.context.diagnostics);
         }
         return [];
+    }
+
+    async onRename(params: RenameParams): Promise<WorkspaceEdit | null> {
+        const { uri } = params.textDocument;
+        const doc = this.documents.get(uri);
+        if (!doc) {
+            return null;
+        }
+
+        if (await this.context.isLWCJavascript(doc)) {
+            const tag = this.componentIndexer.findTagByURI(uri);
+            if (!tag) {
+                return null;
+            }
+            const offset = doc.offsetAt(params.position);
+            const text = doc.getText();
+            let start = offset;
+            let end = offset;
+            while (start > 0 && /\w/.test(text[start - 1])) {
+                start--;
+            }
+            while (end < text.length && /\w/.test(text[end])) {
+                end++;
+            }
+            const word = text.substring(start, end);
+            const member = tag.metadata.classMembers?.find((m) => m.name === word);
+            if (member?.decorator === 'api') {
+                return renameApiProperty(this.componentIndexer, this.languageService, tag, word, params.newName);
+            }
+            return null;
+        }
+
+        if (await this.context.isLWCTemplate(doc)) {
+            const cursorInfo = this.cursorInfo(params);
+            if (!cursorInfo) {
+                return null;
+            }
+            switch (cursorInfo.type) {
+                case 'tag':
+                    return renameComponentTag(this.componentIndexer, this.languageService, cursorInfo.name, params.newName);
+                case 'attributeKey':
+                    return renameHtmlAttribute(this.componentIndexer, this.languageService, cursorInfo.tag, cursorInfo.name, params.newName);
+            }
+        }
+
+        return null;
     }
 
     async onDidChangeContent(changeEvent: any): Promise<void> {
