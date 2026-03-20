@@ -28,7 +28,7 @@ If you write Lightning Web Components and your editor speaks LSP, this is the la
 | `textDocument/references` | ❌ | ✅ |
 | `textDocument/codeAction` | ❌ | ✅ |
 | `textDocument/rename` | ❌ | ✅ |
-| `textDocument/documentHighlight` | ❌ | 🔜 |
+| `textDocument/documentHighlight` | ❌ | ✅ |
 | `textDocument/linkedEditingRange` | ❌ | 🔜 |
 | `workspace/symbol` | ❌ | 🔜 |
 | `textDocument/prepareRename` | ❌ | 🔜 |
@@ -149,6 +149,19 @@ vim.api.nvim_create_autocmd("LspAttach", {
         vim.keymap.set("n", "<leader>vd", vim.diagnostic.open_float, opts)
         vim.keymap.set("n", "]e", function() vim.diagnostic.jump({ count = 1 }) end, opts)
         vim.keymap.set("n", "[e", function() vim.diagnostic.jump({ count = -1 }) end, opts)
+
+        -- Document highlight (highlight all occurrences of symbol under cursor)
+        local client = vim.lsp.get_client_by_id(e.data.client_id)
+        if client and client.supports_method("textDocument/documentHighlight") then
+            vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI" }, {
+                buffer = e.buf,
+                callback = function() vim.lsp.buf.document_highlight() end,
+            })
+            vim.api.nvim_create_autocmd("CursorMoved", {
+                buffer = e.buf,
+                callback = function() vim.lsp.buf.clear_references() end,
+            })
+        end
     end,
 })
 ```
