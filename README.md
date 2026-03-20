@@ -163,16 +163,6 @@ Test it out:
 - `<leader>vrn` — rename across JS and HTML files
 - `<leader>vca` — quick fix missing imports
 
-### 5. Rebuilding After Updates
-
-```bash
-cd lightning-language-server/packages/lwc-language-server
-git pull
-yarn build
-```
-
-Then restart the language server in Neovim: `:LspRestart lwc_ls`
-
 ## Setup Development Environment (VS Code)
 
 For contributors working on the language server itself using VS Code.
