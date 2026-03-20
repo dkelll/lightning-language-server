@@ -29,7 +29,7 @@ If you write Lightning Web Components and your editor speaks LSP, this is the la
 | `textDocument/codeAction` | ❌ | ✅ |
 | `textDocument/rename` | ❌ | ✅ |
 | `textDocument/documentHighlight` | ❌ | ✅ |
-| `textDocument/linkedEditingRange` | ❌ | 🔜 |
+| `textDocument/linkedEditingRange` | ❌ | ✅ |
 | `workspace/symbol` | ❌ | 🔜 |
 | `textDocument/prepareRename` | ❌ | 🔜 |
 | `textDocument/signatureHelp` | ❌ | — ¹ |
@@ -161,6 +161,11 @@ vim.api.nvim_create_autocmd("LspAttach", {
                 buffer = e.buf,
                 callback = function() vim.lsp.buf.clear_references() end,
             })
+        end
+
+        -- Linked editing (edit matching open/close HTML tags simultaneously, Neovim 0.11+)
+        if vim.lsp.buf.linked_editing_range then
+            vim.keymap.set("n", "<leader>vle", vim.lsp.buf.linked_editing_range, opts)
         end
     end,
 })
