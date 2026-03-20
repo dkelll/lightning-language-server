@@ -22,6 +22,7 @@ import {
     RenameParams,
     WorkspaceEdit,
     DocumentHighlight,
+    Range,
 } from 'vscode-languageserver';
 
 import {
@@ -43,6 +44,7 @@ import { getCodeActions } from './code-actions';
 import { renameApiProperty, renameHtmlAttribute, renameComponentTag } from './rename';
 import { getJsDocumentSymbols, getHtmlDocumentSymbols } from './document-symbols';
 import { getJsDocumentHighlights, getHtmlDocumentHighlights } from './document-highlight';
+import { getLinkedEditingRanges } from './linked-editing-range';
 import { AuraDataProvider } from './aura-data-provider';
 import { LWCDataProvider } from './lwc-data-provider';
 import {
@@ -111,6 +113,7 @@ export default class Server {
         this.connection.onCodeAction(this.onCodeAction.bind(this));
         this.connection.onRenameRequest(this.onRename.bind(this));
         this.connection.onDocumentHighlight(this.onDocumentHighlight.bind(this));
+        this.connection.onRequest('textDocument/linkedEditingRange', this.onLinkedEditingRange.bind(this));
         this.connection.onInitialized(this.onInitialized.bind(this));
         this.connection.onDidChangeWatchedFiles(this.onDidChangeWatchedFiles.bind(this));
 
@@ -156,6 +159,7 @@ export default class Server {
                 documentSymbolProvider: true,
                 renameProvider: true,
                 documentHighlightProvider: true,
+                ...{ linkedEditingRangeProvider: true },
                 workspace: {
                     workspaceFolders: {
                         supported: true,
@@ -328,6 +332,16 @@ export default class Server {
             return getHtmlDocumentHighlights(doc, this.languageService, cursorInfo.type, cursorInfo.name, cursorInfo.tag);
         }
         return [];
+    }
+
+    async onLinkedEditingRange(params: TextDocumentPositionParams): Promise<{ ranges: Range[] } | null> {
+        const { uri } = params.textDocument;
+        const doc = this.documents.get(uri);
+        if (!doc || !(await this.context.isLWCTemplate(doc))) {
+            return null;
+        }
+        const ranges = getLinkedEditingRanges(doc, this.languageService, doc.offsetAt(params.position));
+        return ranges ? { ranges } : null;
     }
 
     async onRename(params: RenameParams): Promise<WorkspaceEdit | null> {
