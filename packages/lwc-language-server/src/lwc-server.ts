@@ -21,6 +21,7 @@ import {
     CodeAction,
     RenameParams,
     WorkspaceEdit,
+    DocumentHighlight,
 } from 'vscode-languageserver';
 
 import {
@@ -41,6 +42,7 @@ import { findApiPropertyReferences, findComponentTagReferences, findBindingDefin
 import { getCodeActions } from './code-actions';
 import { renameApiProperty, renameHtmlAttribute, renameComponentTag } from './rename';
 import { getJsDocumentSymbols, getHtmlDocumentSymbols } from './document-symbols';
+import { getJsDocumentHighlights, getHtmlDocumentHighlights } from './document-highlight';
 import { AuraDataProvider } from './aura-data-provider';
 import { LWCDataProvider } from './lwc-data-provider';
 import {
@@ -108,6 +110,7 @@ export default class Server {
         this.connection.onDocumentSymbol(this.onDocumentSymbol.bind(this));
         this.connection.onCodeAction(this.onCodeAction.bind(this));
         this.connection.onRenameRequest(this.onRename.bind(this));
+        this.connection.onDocumentHighlight(this.onDocumentHighlight.bind(this));
         this.connection.onInitialized(this.onInitialized.bind(this));
         this.connection.onDidChangeWatchedFiles(this.onDidChangeWatchedFiles.bind(this));
 
@@ -152,6 +155,7 @@ export default class Server {
                 },
                 documentSymbolProvider: true,
                 renameProvider: true,
+                documentHighlightProvider: true,
                 workspace: {
                     workspaceFolders: {
                         supported: true,
@@ -303,6 +307,25 @@ export default class Server {
         }
         if (await this.context.isLWCJavascript(doc)) {
             return getCodeActions(doc, params.context.diagnostics);
+        }
+        return [];
+    }
+
+    async onDocumentHighlight(params: TextDocumentPositionParams): Promise<DocumentHighlight[]> {
+        const { uri } = params.textDocument;
+        const doc = this.documents.get(uri);
+        if (!doc) {
+            return [];
+        }
+        if (await this.context.isLWCJavascript(doc)) {
+            return getJsDocumentHighlights(doc, doc.offsetAt(params.position));
+        }
+        if (await this.context.isLWCTemplate(doc)) {
+            const cursorInfo = this.cursorInfo(params);
+            if (!cursorInfo) {
+                return [];
+            }
+            return getHtmlDocumentHighlights(doc, this.languageService, cursorInfo.type, cursorInfo.name, cursorInfo.tag);
         }
         return [];
     }
