@@ -156,6 +156,9 @@ vim.api.nvim_create_autocmd("LspAttach", {
 Test it out:
 
 - `:Telescope lsp_document_symbols` — see your component outline
+- `:Telescope lsp_workspace_symbols` — fuzzy-find components across the project
+- `:Telescope lsp_references` — find all usages of the symbol under cursor
+- `:Telescope diagnostics` — browse all diagnostics in the workspace
 - `<leader>vrr` — find all usages of an `@api` property across templates
 - `<leader>vrn` — rename across JS and HTML files
 - `<leader>vca` — quick fix missing imports
