@@ -163,6 +163,55 @@ Test it out:
 - `<leader>vrn` — rename across JS and HTML files
 - `<leader>vca` — quick fix missing imports
 
+## Setup Development Environment (Neovim)
+
+For contributors working on the language server itself using Neovim.
+
+### Clone and install
+
+```bash
+git clone git@github.com:dkelll/lightning-language-server.git
+cd lightning-language-server
+yarn install
+yarn link-lsp
+```
+
+### Build the LWC language server
+
+```bash
+cd packages/lwc-language-server
+yarn build
+```
+
+### Point Neovim at your local build
+
+Configure `lwc_ls` to use your local build (see [Neovim Usage & Configuration](#neovim-usage--configuration) above for your package manager).
+
+### Development workflow
+
+1. Make changes in `packages/lwc-language-server/src/`
+2. Rebuild: `cd packages/lwc-language-server && yarn build`
+3. Restart the server in Neovim: `:LspRestart lwc_ls`
+4. Test your changes in a real LWC project
+
+### Linting
+
+```bash
+# From the repo root
+npx eslint -c .eslintrc.json packages/lwc-language-server/src/your-file.ts
+npx eslint -c .eslintrc.json --fix packages/lwc-language-server/src/your-file.ts
+```
+
+### Commit conventions
+
+This repo uses [conventional commits](https://www.conventionalcommits.org/) enforced by commitlint. Format:
+
+```
+feat: add textDocument/documentHighlight support
+fix: narrow rename edit to property name only
+docs: update README with Neovim setup instructions
+```
+
 ## Setup Development Environment (VS Code)
 
 For contributors working on the language server itself using VS Code.
@@ -227,52 +276,3 @@ npm run watch
 
 Note: You need to restart vscode each time you make changes to the language server or the lightning vscode extensions.
 Easiest way to do this is to kill the vscode client and hit F5 to relaunch your debugger.
-
-## Setup Development Environment (Neovim)
-
-For contributors working on the language server itself using Neovim.
-
-### Clone and install
-
-```bash
-git clone git@github.com:dkelll/lightning-language-server.git
-cd lightning-language-server
-yarn install
-yarn link-lsp
-```
-
-### Build the LWC language server
-
-```bash
-cd packages/lwc-language-server
-yarn build
-```
-
-### Point Neovim at your local build
-
-Configure `lwc_ls` to use your local build (see [Neovim Usage & Configuration](#neovim-usage--configuration) above for your package manager).
-
-### Development workflow
-
-1. Make changes in `packages/lwc-language-server/src/`
-2. Rebuild: `cd packages/lwc-language-server && yarn build`
-3. Restart the server in Neovim: `:LspRestart lwc_ls`
-4. Test your changes in a real LWC project
-
-### Linting
-
-```bash
-# From the repo root
-npx eslint -c .eslintrc.json packages/lwc-language-server/src/your-file.ts
-npx eslint -c .eslintrc.json --fix packages/lwc-language-server/src/your-file.ts
-```
-
-### Commit conventions
-
-This repo uses [conventional commits](https://www.conventionalcommits.org/) enforced by commitlint. Format:
-
-```
-feat: add textDocument/documentHighlight support
-fix: narrow rename edit to property name only
-docs: update README with Neovim setup instructions
-```
