@@ -28,7 +28,7 @@ If you write Lightning Web Components and your editor speaks LSP, this is the la
 | `textDocument/references` | ❌ | ✅ |
 | `textDocument/codeAction` | ❌ | ✅ |
 | `textDocument/rename` | ❌ | ✅ |
-| `textDocument/documentHighlight` | ❌ | 🔜 |
+| `textDocument/documentHighlight` | ❌ | ✅ |
 | `textDocument/linkedEditingRange` | ❌ | 🔜 |
 | `workspace/symbol` | ❌ | 🔜 |
 | `textDocument/prepareRename` | ❌ | 🔜 |
