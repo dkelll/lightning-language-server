@@ -23,6 +23,7 @@ import {
     WorkspaceEdit,
     DocumentHighlight,
     Range,
+    SymbolInformation,
 } from 'vscode-languageserver';
 
 import {
@@ -45,6 +46,7 @@ import { renameApiProperty, renameHtmlAttribute, renameComponentTag } from './re
 import { getJsDocumentSymbols, getHtmlDocumentSymbols } from './document-symbols';
 import { getJsDocumentHighlights, getHtmlDocumentHighlights } from './document-highlight';
 import { getLinkedEditingRanges } from './linked-editing-range';
+import { getWorkspaceSymbols } from './workspace-symbol';
 import { AuraDataProvider } from './aura-data-provider';
 import { LWCDataProvider } from './lwc-data-provider';
 import {
@@ -114,6 +116,7 @@ export default class Server {
         this.connection.onRenameRequest(this.onRename.bind(this));
         this.connection.onDocumentHighlight(this.onDocumentHighlight.bind(this));
         this.connection.onRequest('textDocument/linkedEditingRange', this.onLinkedEditingRange.bind(this));
+        this.connection.onWorkspaceSymbol(this.onWorkspaceSymbol.bind(this));
         this.connection.onInitialized(this.onInitialized.bind(this));
         this.connection.onDidChangeWatchedFiles(this.onDidChangeWatchedFiles.bind(this));
 
@@ -160,6 +163,7 @@ export default class Server {
                 renameProvider: true,
                 documentHighlightProvider: true,
                 ...{ linkedEditingRangeProvider: true },
+                workspaceSymbolProvider: true,
                 workspace: {
                     workspaceFolders: {
                         supported: true,
@@ -342,6 +346,10 @@ export default class Server {
         }
         const ranges = getLinkedEditingRanges(doc, this.languageService, doc.offsetAt(params.position));
         return ranges ? { ranges } : null;
+    }
+
+    onWorkspaceSymbol(params: { query: string }): SymbolInformation[] {
+        return getWorkspaceSymbols(this.componentIndexer, params.query);
     }
 
     async onRename(params: RenameParams): Promise<WorkspaceEdit | null> {
