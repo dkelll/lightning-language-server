@@ -17,6 +17,8 @@ import {
     ReferenceParams,
     DocumentSymbolParams,
     DocumentSymbol,
+    CodeActionParams,
+    CodeAction,
 } from 'vscode-languageserver';
 
 import {
@@ -34,6 +36,7 @@ import { basename, dirname, parse } from 'path';
 
 import { compileDocument as javascriptCompileDocument } from './javascript/compiler';
 import { findApiPropertyReferences, findComponentTagReferences, findBindingDefinitionInJs } from './references';
+import { getCodeActions } from './code-actions';
 import { getJsDocumentSymbols, getHtmlDocumentSymbols } from './document-symbols';
 import { AuraDataProvider } from './aura-data-provider';
 import { LWCDataProvider } from './lwc-data-provider';
@@ -100,6 +103,7 @@ export default class Server {
         this.connection.onDefinition(this.onDefinition.bind(this));
         this.connection.onReferences(this.onReferences.bind(this));
         this.connection.onDocumentSymbol(this.onDocumentSymbol.bind(this));
+        this.connection.onCodeAction(this.onCodeAction.bind(this));
         this.connection.onInitialized(this.onInitialized.bind(this));
         this.connection.onDidChangeWatchedFiles(this.onDidChangeWatchedFiles.bind(this));
 
@@ -139,6 +143,9 @@ export default class Server {
                 hoverProvider: true,
                 definitionProvider: true,
                 referencesProvider: true,
+                codeActionProvider: {
+                    codeActionKinds: ['quickfix'],
+                },
                 documentSymbolProvider: true,
                 workspace: {
                     workspaceFolders: {
@@ -280,6 +287,17 @@ export default class Server {
         }
         if (await this.context.isLWCTemplate(doc)) {
             return getHtmlDocumentSymbols(doc, this.languageService.parseHTMLDocument(doc));
+        }
+        return [];
+    }
+
+    async onCodeAction(params: CodeActionParams): Promise<CodeAction[]> {
+        const doc = this.documents.get(params.textDocument.uri);
+        if (!doc) {
+            return [];
+        }
+        if (await this.context.isLWCJavascript(doc)) {
+            return getCodeActions(doc, params.context.diagnostics);
         }
         return [];
     }
