@@ -1,7 +1,7 @@
-import { TextEdit, WorkspaceEdit } from 'vscode-languageserver';
+import { TextEdit, Range, WorkspaceEdit } from 'vscode-languageserver';
 import { LanguageService } from 'vscode-html-languageservice';
 import ComponentIndexer from './component-indexer';
-import { Tag, getLwcName, findClassMember, getClassMemberLocation } from './tag';
+import { Tag, getLwcName, findClassMember, getTagUri } from './tag';
 import { scanHtmlForTagAttribute, getHtmlFilePath } from './references';
 import { paramCase } from 'change-case';
 import camelcase from 'camelcase';
@@ -33,6 +33,45 @@ const collectHtmlEdits = (
 };
 
 /**
+ * Find the range of just the property name within a class member's loc.
+ * The loc covers the full declaration (e.g. "@api myProp = 'val'"), so we
+ * search for the name within that text to get a precise range.
+ */
+const findNameRange = (tag: Tag, memberName: string): { uri: string; range: Range } | null => {
+    const member = findClassMember(tag, memberName);
+    if (!member?.loc) {
+        return null;
+    }
+    const jsPath = tag.file;
+    const source = fs.readFileSync(jsPath, 'utf-8');
+    const lines = source.split('\n');
+    // loc is 1-based line, 0-based column
+    const startLine = member.loc.start.line - 1;
+    const startCol = member.loc.start.column;
+    const endLine = member.loc.end.line - 1;
+    // Extract the text covered by the member loc
+    const memberLines = lines.slice(startLine, endLine + 1);
+    memberLines[0] = memberLines[0].substring(startCol);
+    const memberText = memberLines.join('\n');
+    const nameIdx = memberText.indexOf(memberName);
+    if (nameIdx < 0) {
+        return null;
+    }
+    // Convert back to absolute position
+    let line = startLine;
+    let col = startCol + nameIdx;
+    // Account for newlines in memberText before nameIdx
+    const before = memberText.substring(0, nameIdx);
+    const newlines = before.split('\n').length - 1;
+    if (newlines > 0) {
+        line = startLine + newlines;
+        col = before.length - before.lastIndexOf('\n') - 1;
+    }
+    const uri = getTagUri(tag);
+    return { uri, range: Range.create(line, col, line, col + memberName.length) };
+};
+
+/**
  * Rename an @api property from JS: update JS definition + all HTML attribute usages.
  */
 export const renameApiProperty = (
@@ -42,12 +81,12 @@ export const renameApiProperty = (
     oldName: string,
     newCamelName: string,
 ): WorkspaceEdit | null => {
-    const jsLoc = getClassMemberLocation(tag, oldName);
-    if (!jsLoc) {
+    const nameRange = findNameRange(tag, oldName);
+    if (!nameRange) {
         return null;
     }
     const changes = collectHtmlEdits(componentIndexer, languageService, getLwcName(tag), paramCase(newCamelName), paramCase(oldName));
-    changes[jsLoc.uri] = [TextEdit.replace(jsLoc.range, newCamelName)];
+    changes[nameRange.uri] = [TextEdit.replace(nameRange.range, newCamelName)];
     return { changes };
 };
 
