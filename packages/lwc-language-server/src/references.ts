@@ -15,7 +15,7 @@ interface HtmlAttrOccurrence {
 /**
  * Scan an HTML template for occurrences of a given tag name and/or attribute.
  */
-const scanHtmlForTagAttribute = (
+export const scanHtmlForTagAttribute = (
     htmlText: string,
     uri: string,
     languageService: LanguageService,
@@ -56,7 +56,7 @@ const scanHtmlForTagAttribute = (
     return results;
 };
 
-const getHtmlFilePath = (tag: Tag): string | null => {
+export const getHtmlFilePath = (tag: Tag): string | null => {
     const htmlPath = tag.file.replace(/\.js$/, '.html');
     return fs.existsSync(htmlPath) ? htmlPath : null;
 };
