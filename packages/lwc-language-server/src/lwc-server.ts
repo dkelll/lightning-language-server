@@ -44,6 +44,7 @@ import { getCodeActions } from './code-actions';
 import { renameApiProperty, renameHtmlAttribute, renameComponentTag } from './rename';
 import { getJsDocumentSymbols, getHtmlDocumentSymbols } from './document-symbols';
 import { getJsDocumentHighlights, getHtmlDocumentHighlights } from './document-highlight';
+import { prepareRenameJs, prepareRenameHtml } from './prepare-rename';
 import { getLinkedEditingRanges } from './linked-editing-range';
 import { AuraDataProvider } from './aura-data-provider';
 import { LWCDataProvider } from './lwc-data-provider';
@@ -112,6 +113,7 @@ export default class Server {
         this.connection.onDocumentSymbol(this.onDocumentSymbol.bind(this));
         this.connection.onCodeAction(this.onCodeAction.bind(this));
         this.connection.onRenameRequest(this.onRename.bind(this));
+        this.connection.onPrepareRename(this.onPrepareRename.bind(this));
         this.connection.onDocumentHighlight(this.onDocumentHighlight.bind(this));
         this.connection.onRequest('textDocument/linkedEditingRange', this.onLinkedEditingRange.bind(this));
         this.connection.onInitialized(this.onInitialized.bind(this));
@@ -157,7 +159,7 @@ export default class Server {
                     codeActionKinds: ['quickfix'],
                 },
                 documentSymbolProvider: true,
-                renameProvider: true,
+                renameProvider: { prepareProvider: true },
                 documentHighlightProvider: true,
                 ...{ linkedEditingRangeProvider: true },
                 workspace: {
@@ -342,6 +344,21 @@ export default class Server {
         }
         const ranges = getLinkedEditingRanges(doc, this.languageService, doc.offsetAt(params.position));
         return ranges ? { ranges } : null;
+    }
+
+    async onPrepareRename(params: TextDocumentPositionParams): Promise<{ range: Range; placeholder: string } | null> {
+        const { uri } = params.textDocument;
+        const doc = this.documents.get(uri);
+        if (!doc) {
+            return null;
+        }
+        if (await this.context.isLWCJavascript(doc)) {
+            return prepareRenameJs(doc, doc.offsetAt(params.position), this.componentIndexer);
+        }
+        if (await this.context.isLWCTemplate(doc)) {
+            return prepareRenameHtml(doc, doc.offsetAt(params.position), this.languageService, this.componentIndexer);
+        }
+        return null;
     }
 
     async onRename(params: RenameParams): Promise<WorkspaceEdit | null> {
